@@ -1,9 +1,60 @@
 import comtypes.client
 import sys
 import pandas as pd
+from openpyxl import Workbook
 
 from utils import extractions
+
+from elements.detail import Detail
 from elements.story import Story
+from elements.column import RectangularColumn
+from elements.stirrup import Stirrup
+from elements.rebar import Rebar
+
+
+
+def create_dxf_file(column_data: list[dict]):
+    pass
+
+
+def generate_excel_table(stories_data, grid_lines):
+    
+    stories_reverse = []
+    
+    
+    for story in stories_data[::-1]:
+        stories_reverse.append(story)
+        
+    wb = Workbook()
+    ws = wb.active
+    
+    # Create headers
+    ws['A1'] = "NIVEL"
+    ws['B1'] = "DESCRIPCION"
+    
+    
+    for item in range(0,len(stories_reverse)-1):
+        ws.cell(row=9*item+2, column=1).value = f"{stories_reverse[item]['name']}@{stories_reverse[item+1]['name']}"
+        ws.cell(row=9*item+2, column=2).value = "b x h"
+        ws.cell(row=9*item+3, column=2).value = "f'c"
+        ws.cell(row=9*item+4, column=2).value = "As"
+        ws.cell(row=9*item+5, column=2).value = "Est. en Lo"
+        ws.cell(row=9*item+6, column=2).value = "Est. en Resto"
+        ws.cell(row=9*item+7, column=2).value = "Estribo Externo"
+        ws.cell(row=9*item+8, column=2).value = "Estribos Interno"
+        ws.cell(row=9*item+9, column=2).value = "Lo"
+        ws.cell(row=9*item+10, column=2).value = "Detalle"
+        
+        
+    # Columns Data
+    counter_col = 0
+    for x in grid_lines:
+        ws.cell(row=1, column=3+counter_col).value = f"C-{x}"
+        counter_col += 1
+    
+        
+    
+    wb.save('cuadro_columnas.xlsx')
 
 def get_story_by_elevation(stories_data, elevation):
     for story in stories_data:
@@ -162,6 +213,10 @@ def get_model_data(model_path):
         # Add 1 in order that identifiers start in 1 not in 0
         df_columns['GridLine'] = pd.factorize(df_columns['temp_grid'])[0] + 1
         
+        grid_lines = df_columns['GridLine'].unique()
+        sections = df_columns['section'].unique()
+        number_details = len(sections)
+        
         # 3. (Optional) Delete column temp
         df_columns = df_columns.drop(columns=['temp_grid'])
         
@@ -173,3 +228,37 @@ def get_model_data(model_path):
 
     #Close Application
     EtabsObject.ApplicationExit(False)
+    
+    # Generate Cuadro de Columnas Excel
+    generate_excel_table(stories, grid_lines)
+    
+    # Generate dxf section details
+    for section in sections:
+        print(section)
+        # Get row of dataframe
+        section_name = df_sorted[df_sorted['section'] == section].iloc[0]['section']
+        width = df_sorted[df_sorted['section'] == section].iloc[0]['width'] * 1000 # Convert to mm
+        depth = df_sorted[df_sorted['section'] == section].iloc[0]['depth'] * 1000 # Convert to mm
+        column = RectangularColumn(section_name=section_name, width=width, height=depth)
+        r2_bars = df_sorted[df_sorted['section'] == section].iloc[0]['number_r2_bars']
+        r3_bars = df_sorted[df_sorted['section'] == section].iloc[0]['number_r3_bars']
+        rebar_type = df_sorted[df_sorted['section'] == section].iloc[0]['Rebar']
+        cover = df_sorted[df_sorted['section'] == section].iloc[0]['cover'] * 1000 #Convert to mm
+        outer_stirrup_rebar = "#4"
+        outer_stirrup = Stirrup(outer_stirrup_rebar)
+        spacing_r2 = (column.height - 2 * column.cover - 2*outer_stirrup.diameter) /(r2_bars - 1)
+        spacing_r3 = (column.width - 2 * column.cover - 2*outer_stirrup.diameter) /(r3_bars - 1)
+        rebar_data = []
+        start_x = cover + outer_stirrup.diameter
+        end_x = column.width - cover - outer_stirrup.diameter
+        start_y = cover + outer_stirrup.diameter
+        for x in range(1, r2_bars+1):
+            pos_x = start_x
+            pos_y = start_y (x-1)*spacing_r2
+            rebar_data.append(Rebar(rebar_type, pos_x, pos_y))
+            rebar_data.append(Rebar(rebar_type, end_x, pos_y))
+        
+        
+        
+        
+   

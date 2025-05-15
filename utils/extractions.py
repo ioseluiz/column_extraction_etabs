@@ -133,7 +133,8 @@ def extract_columns_by_level(sap_model, stories_data):
                     try:
                         # 8 for rectangular ,9 for circle, 28 concrete L
                         section_type_oapi,ret_type = sap_model.PropFrame.GetTypeOAPI(section_name)
-                        is_column = True
+                        if section_type_oapi == 8:
+                            is_column = True
                         
                         
                         

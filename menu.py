@@ -179,6 +179,7 @@ class NewGameWindow(QWidget):
             # Call function to open etabs and extract the column data
             create_column_table.get_model_data(self.selected_file_path)
             
+            
         else:
             print("No file selected to process.")
             self.info_label.setText("No file selected. Please select an .edb file first.")
