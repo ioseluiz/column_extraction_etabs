@@ -5,11 +5,13 @@ from openpyxl import Workbook
 
 from utils import extractions
 
-from elements.detail import Detail
+
 from elements.story import Story
-from elements.column import RectangularColumn
-from elements.stirrup import Stirrup
-from elements.rebar import Rebar
+
+from dxf_drawer.drawing import Drawing
+from dxf_drawer.detail import Detail
+from dxf_drawer.column import RectangularColumn
+
 
 
 
@@ -233,30 +235,46 @@ def get_model_data(model_path):
     generate_excel_table(stories, grid_lines)
     
     # Generate dxf section details
+    columns = []
     for section in sections:
-        print(section)
-        # Get row of dataframe
-        section_name = df_sorted[df_sorted['section'] == section].iloc[0]['section']
         width = df_sorted[df_sorted['section'] == section].iloc[0]['width'] * 1000 # Convert to mm
         depth = df_sorted[df_sorted['section'] == section].iloc[0]['depth'] * 1000 # Convert to mm
-        column = RectangularColumn(section_name=section_name, width=width, height=depth)
+        fc = df_sorted[df_sorted['section'] == section].iloc[0]['material']
+        fc = int(fc[:-3])
+        # Convert fc to kg/cm2
+        fc = int(fc * (12*12)*(3.28*3.28)/(100*100*2.204))
+        fc = str(fc)
+        
         r2_bars = df_sorted[df_sorted['section'] == section].iloc[0]['number_r2_bars']
         r3_bars = df_sorted[df_sorted['section'] == section].iloc[0]['number_r3_bars']
         rebar_type = df_sorted[df_sorted['section'] == section].iloc[0]['Rebar']
+        number_bars = df_sorted[df_sorted['section'] == section].iloc[0]['# Bars']
         cover = df_sorted[df_sorted['section'] == section].iloc[0]['cover'] * 1000 #Convert to mm
-        outer_stirrup_rebar = "#4"
-        outer_stirrup = Stirrup(outer_stirrup_rebar)
-        spacing_r2 = (column.height - 2 * column.cover - 2*outer_stirrup.diameter) /(r2_bars - 1)
-        spacing_r3 = (column.width - 2 * column.cover - 2*outer_stirrup.diameter) /(r3_bars - 1)
-        rebar_data = []
-        start_x = cover + outer_stirrup.diameter
-        end_x = column.width - cover - outer_stirrup.diameter
-        start_y = cover + outer_stirrup.diameter
-        for x in range(1, r2_bars+1):
-            pos_x = start_x
-            pos_y = start_y (x-1)*spacing_r2
-            rebar_data.append(Rebar(rebar_type, pos_x, pos_y))
-            rebar_data.append(Rebar(rebar_type, end_x, pos_y))
+        stirrup_type = "#4"
+        
+        columns.append(
+            RectangularColumn(width=depth, height=width, fc=fc, number_of_bars=number_bars, rebar_type=rebar_type, r2_bars=r2_bars, r3_bars=r3_bars, cover = cover, stirrup_type=stirrup_type),
+        )
+        
+     # 1. Create list of Detail
+    list_details = []
+    start_point = (100,100)
+    counter = 0
+    width_detail = 3000
+    height_detail = 3000
+        
+    for i in range(1, len(columns)+1): 
+        actual_col = columns[i-1]
+        origin_point = (start_point[0], start_point[1] - (height_detail*counter))
+        detail = Detail(f"DC-{i}",origin_point, width_detail, height_detail)
+        detail.set_column(actual_col)
+        detail.set_origin_for_col(actual_col.width, actual_col.height)
+        list_details.append( detail)
+        counter += 1
+
+    drawing = Drawing(filename='detalles_cols_etabs.dxf', list_details=list_details)
+    drawing.create_dxf()
+        
         
         
         
