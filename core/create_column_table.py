@@ -13,13 +13,25 @@ from dxf_drawer.detail import Detail
 from dxf_drawer.column import RectangularColumn
 
 
+def get_excel_row(row_data, value):
+    for item in row_data:
+        if item['level'] == value:
+            return item['row']
+        
+    return None
 
+def get_excel_col(col_data, value):
+    for item in col_data:
+        if item['gridline'] == value:
+            return  item['excel_col']
+        
+    return None
 
 def create_dxf_file(column_data: list[dict]):
     pass
 
 
-def generate_excel_table(stories_data, grid_lines):
+def generate_excel_table(stories_data, grid_lines, column_records: list[dict]):
     
     stories_reverse = []
     
@@ -35,8 +47,13 @@ def generate_excel_table(stories_data, grid_lines):
     ws['B1'] = "DESCRIPCION"
     
     
+    col_rows = []
     for item in range(0,len(stories_reverse)-1):
-        ws.cell(row=9*item+2, column=1).value = f"{stories_reverse[item]['name']}@{stories_reverse[item+1]['name']}"
+        col_rows.append(
+            {'level':f"{stories_reverse[item+1]['name']}@{stories_reverse[item]['name']}",
+             'row': 9*item+2 }
+        )
+        ws.cell(row=9*item+2, column=1).value = f"{stories_reverse[item+1]['name']}@{stories_reverse[item]['name']}"
         ws.cell(row=9*item+2, column=2).value = "b x h"
         ws.cell(row=9*item+3, column=2).value = "f'c"
         ws.cell(row=9*item+4, column=2).value = "As"
@@ -49,13 +66,31 @@ def generate_excel_table(stories_data, grid_lines):
         
         
     # Columns Data
+    gridline_columns = []
     counter_col = 0
     for x in grid_lines:
         ws.cell(row=1, column=3+counter_col).value = f"C-{x}"
+        gridline_columns.append(
+            {'gridline': x, 'excel_col': 3+counter_col}
+        )
         counter_col += 1
-    
-        
-    
+
+    # Column Dataframe
+    for record in column_records:
+            excel_column = get_excel_col(gridline_columns,record['GridLine'])
+            excel_row = get_excel_row(col_rows, record['start_end_level'])
+            if excel_row:
+                if excel_column:
+                    #bxh
+                    ws.cell(row=excel_row, column=excel_column).value = record['bxh']
+                    #f'c
+                    ws.cell(row=excel_row+1, column=excel_column).value = record['material']
+                    # As
+                    ws.cell(row=excel_row+2, column=excel_column).value = record['As']
+
+
+
+
     wb.save('cuadro_columnas.xlsx')
 
 def get_story_by_elevation(stories_data, elevation):
@@ -162,6 +197,7 @@ def get_model_data(model_path):
                     info['type'] = col_shape
                     info['width'] = width
                     info['depth'] = depth
+                    info['bxh'] = f"{depth}x{width}"
                     info['material'] = material_defined
                     info['pos_x'] = round(col_x_pos,2)
                     info['pos_y'] = round(col_y_pos,2)
@@ -171,6 +207,7 @@ def get_model_data(model_path):
                     info['story_end'] = get_story_by_elevation(stories, col_z_end)
                     info['z_start'] = round(col_z_start,2)
                     info['z_end'] = round(col_z_end,2)
+                    info['start_end_level'] = f"{info['story_start']}@{info['story_end']}"
                     if rebar_data:
                         info['Mat. Rebar'] = rebar_data['mat_rebar_long']
                         info['cover'] = rebar_data['cover']
@@ -179,6 +216,7 @@ def get_model_data(model_path):
                         info['# Bars'] = rebar_data['number_bars']
                         info['Rebar'] = rebar_data['rebar_type']
                         info['Mat. Estribo'] = rebar_data['mat_rebar_confine']
+                        info['As']  = f"{rebar_data['number_bars']} {rebar_data['rebar_type']}"
                         
                     else:
                         info['Mat. Rebar'] = ""
@@ -188,6 +226,7 @@ def get_model_data(model_path):
                         info['# Bars'] = ""
                         info['Rebar'] = ""
                         info['Mat. Estribo'] = ""
+                        info['As'] = ""
                     data_output.append(info)
                     
                     
@@ -203,6 +242,17 @@ def get_model_data(model_path):
                 print("No column data was extracted or an error occurred.")
                 
         df_columns = pd.DataFrame(data_output)
+
+        # Unique sections
+        df_section_selected = df_columns[['bxh','As']]
+        df_section_unique = df_section_selected.drop_duplicates()
+
+        section_rows = len(df_section_unique)
+        detail_values = [f"DC-{i+i}" for i in range(section_rows)]
+        df_section_unique['detail'] = detail_values
+
+        
+
         
         # 1. Create tuple of cols "pos_x" and "pos_y" for each row.
         # This is useful to have an object that can be used to find unique combinations.
@@ -216,44 +266,54 @@ def get_model_data(model_path):
         df_columns['GridLine'] = pd.factorize(df_columns['temp_grid'])[0] + 1
         
         grid_lines = df_columns['GridLine'].unique()
-        sections = df_columns['section'].unique()
-        number_details = len(sections)
+       
         
         # 3. (Optional) Delete column temp
         df_columns = df_columns.drop(columns=['temp_grid'])
+
+        # 4. Merge with detail for section
+        df_merged = pd.merge(df_columns, df_section_unique, on=['bxh', 'As'], how='left')
+        print(df_merged)
         
-        #4. Sort rows
-        df_sorted =df_columns.sort_values(by=['GridLine', 'story_elevation'],ascending=True)
+        
+        sections = df_merged['detail'].unique()
+        print(sections)
+        number_details = len(sections)
+        #5. Sort rows
+        df_sorted =df_merged.sort_values(by=['GridLine', 'z_start'],ascending=True)
         # Sort dataframe by pos_x, pos_y
         df_sorted.to_excel("column_output.xlsx")
-                    
-
+        
+    
     #Close Application
     EtabsObject.ApplicationExit(False)
+
+    # Convert data to list of dicts
+    col_list = df_sorted.to_dict(orient='records')
     
     # Generate Cuadro de Columnas Excel
-    generate_excel_table(stories, grid_lines)
+    generate_excel_table(stories, grid_lines ,col_list)
     
     # Generate dxf section details
     columns = []
     for section in sections:
-        width = df_sorted[df_sorted['section'] == section].iloc[0]['width'] * 1000 # Convert to mm
-        depth = df_sorted[df_sorted['section'] == section].iloc[0]['depth'] * 1000 # Convert to mm
-        fc = df_sorted[df_sorted['section'] == section].iloc[0]['material']
+        width = df_sorted[df_sorted['detail'] == section].iloc[0]['width'] * 1000 # Convert to mm
+        depth = df_sorted[df_sorted['detail'] == section].iloc[0]['depth'] * 1000 # Convert to mm
+        fc = df_sorted[df_sorted['detail'] == section].iloc[0]['material']
         fc = int(fc[:-3])
         # Convert fc to kg/cm2
         fc = int(fc * (12*12)*(3.28*3.28)/(100*100*2.204))
         fc = str(fc)
         
-        r2_bars = df_sorted[df_sorted['section'] == section].iloc[0]['number_r2_bars']
-        r3_bars = df_sorted[df_sorted['section'] == section].iloc[0]['number_r3_bars']
-        rebar_type = df_sorted[df_sorted['section'] == section].iloc[0]['Rebar']
-        number_bars = df_sorted[df_sorted['section'] == section].iloc[0]['# Bars']
-        cover = df_sorted[df_sorted['section'] == section].iloc[0]['cover'] * 1000 #Convert to mm
+        r2_bars = df_sorted[df_sorted['detail'] == section].iloc[0]['number_r2_bars']
+        r3_bars = df_sorted[df_sorted['detail'] == section].iloc[0]['number_r3_bars']
+        rebar_type = df_sorted[df_sorted['detail'] == section].iloc[0]['Rebar']
+        number_bars = df_sorted[df_sorted['detail'] == section].iloc[0]['# Bars']
+        cover = df_sorted[df_sorted['detail'] == section].iloc[0]['cover'] * 1000 #Convert to mm
         stirrup_type = "#4"
         
         columns.append(
-            RectangularColumn(width=depth, height=width, fc=fc, number_of_bars=number_bars, rebar_type=rebar_type, r2_bars=r2_bars, r3_bars=r3_bars, cover = cover, stirrup_type=stirrup_type),
+            {'detail': section ,'column':RectangularColumn(width=depth, height=width, fc=fc, number_of_bars=number_bars, rebar_type=rebar_type, r2_bars=r2_bars, r3_bars=r3_bars, cover = cover, stirrup_type=stirrup_type),}
         )
         
      # 1. Create list of Detail
@@ -264,9 +324,9 @@ def get_model_data(model_path):
     height_detail = 3000
         
     for i in range(1, len(columns)+1): 
-        actual_col = columns[i-1]
+        actual_col = columns[i-1]['column']
         origin_point = (start_point[0], start_point[1] - (height_detail*counter))
-        detail = Detail(f"DC-{i}",origin_point, width_detail, height_detail)
+        detail = Detail(f"{columns[i-1]['detail']}",origin_point, width_detail, height_detail)
         detail.set_column(actual_col)
         detail.set_origin_for_col(actual_col.width, actual_col.height)
         list_details.append( detail)
@@ -275,8 +335,3 @@ def get_model_data(model_path):
     drawing = Drawing(filename='detalles_cols_etabs.dxf', list_details=list_details)
     drawing.create_dxf()
         
-        
-        
-        
-        
-   

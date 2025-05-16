@@ -173,6 +173,17 @@ class Drawing:
                 
             )
 
+            # Corner Hook Arc
+            msp.add_arc(
+                center=detail.column.hook_arc.center_point,
+                radius=detail.column.hook_arc.radius,
+                start_angle=detail.column.hook_arc.start_angle,
+                end_angle=detail.column.hook_arc.end_angle,
+            )
+
+            # Corner Hook Polyline
+            msp.add_lwpolyline(detail.column.corner_hook_coords_left,dxfattribs={"layer": "Rebar"} )
+
 
            
         # Save the dxf file

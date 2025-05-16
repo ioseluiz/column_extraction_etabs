@@ -1,6 +1,8 @@
 from .rebar import Rebar
 from .stirrup import Stirrup
 
+import math
+
 class Arc:
     def __init__(self, center_point: tuple[int], radius: int, start_angle: int, end_angle: int):
         self.center_point = center_point
@@ -237,6 +239,41 @@ class RectangularColumn:
         )
         
     def set_corner_hook(self):
-        pass
+        # Arc
+        rebar = Rebar(type=self.rebar_type)
+        center_point = (
+             self.origin[0] + self.cover + self.main_stirrup.diameter + rebar.diameter/2,
+            self.origin[1] - self.cover - self.main_stirrup.diameter - rebar.diameter/2
+        )
+        self.hook_arc = Arc(
+            center_point=center_point,
+            radius = rebar.diameter/2 +self.main_stirrup.diameter,
+            start_angle=45,
+            end_angle=225
+        )
+        # Polyline
+        angle_degrees = 45
+        # convert angle to radians
+        angle_radians = math.radians(angle_degrees)
+        # Calculate sin 45
+        sin_45 = math.sin(angle_radians)
+        # Calculate cos 45
+        cos_45 = math.cos(angle_radians)
+        x_coord = center_point[0] - cos_45*rebar.diameter/2
+        y_coord = center_point[1] - sin_45*rebar.diameter/2
+        _6db = 6*rebar.diameter
+        x1_coord = x_coord + cos_45 * _6db
+        y1_coord = y_coord - sin_45 * _6db
+        x2_coord = x1_coord - cos_45 * self.main_stirrup.diameter
+        y2_coord = y1_coord - sin_45 * self.main_stirrup.diameter
+        x3_coord =x2_coord - cos_45 * _6db
+        y3_coord = y2_coord + sin_45 * _6db
+        self.corner_hook_coords_left = [
+            (x_coord, y_coord), 
+            (x1_coord, y1_coord),
+            (x2_coord, y2_coord),
+            (x3_coord, y3_coord),
+            (x_coord, y_coord)
+        ]
 
 

@@ -61,10 +61,7 @@ class Detail:
         self.column.set_top_left_arc()
         self.column.set_bottom_left_arc()
         self.column.set_bottom_right_arc()
+        #Corner Hook
+        self.column.set_corner_hook()
         # Title Position
-        self.title_coor = self.get_coordinates_title() # tuple (x,y
-
-
-
-
-    
+        self.title_coor = self.get_coordinates_title() # tuple (x,y)
