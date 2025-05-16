@@ -261,7 +261,7 @@ class RectangularColumn:
         cos_45 = math.cos(angle_radians)
         x_coord = center_point[0] - cos_45*rebar.diameter/2
         y_coord = center_point[1] - sin_45*rebar.diameter/2
-        _6db = 6*rebar.diameter
+        _6db = 3*rebar.diameter
         x1_coord = x_coord + cos_45 * _6db
         y1_coord = y_coord - sin_45 * _6db
         x2_coord = x1_coord - cos_45 * self.main_stirrup.diameter

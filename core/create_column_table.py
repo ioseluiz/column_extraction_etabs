@@ -248,7 +248,7 @@ def get_model_data(model_path):
         df_section_unique = df_section_selected.drop_duplicates()
 
         section_rows = len(df_section_unique)
-        detail_values = [f"DC-{i+i}" for i in range(section_rows)]
+        detail_values = [f"DC-{i+1}" for i in range(section_rows)]
         df_section_unique['detail'] = detail_values
 
         
