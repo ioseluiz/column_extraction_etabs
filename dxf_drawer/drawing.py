@@ -179,6 +179,7 @@ class Drawing:
                 radius=detail.column.hook_arc.radius,
                 start_angle=detail.column.hook_arc.start_angle,
                 end_angle=detail.column.hook_arc.end_angle,
+                dxfattribs={"layer": "Rebar"}
             )
 
             # Corner Hook Polyline

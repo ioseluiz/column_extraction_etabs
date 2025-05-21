@@ -1,12 +1,188 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QSpacerItem, QSizePolicy, QFileDialog
+    QPushButton, QLabel, QSpacerItem, QSizePolicy, QFileDialog,
+    QTableWidget, QTableWidgetItem, QScrollArea, QFrame
+    
 )
 from PyQt5.QtGui import QFont, QPixmap 
 from PyQt5.QtCore import Qt, QSize, QT_VERSION_STR, PYQT_VERSION_STR
 
 from core import create_column_table
+
+class ColumnDataScreen(QWidget):
+    """
+    Pantalla para mostrar y gestionar datos de columnas después de conectar con ETABS.
+    Inspirada en la imagen proporcionada.
+    """
+    def __init__(self, main_menu_ref, sap_model_object=None, parent=None):
+        super().__init__(parent)
+        self.main_menu_ref = main_menu_ref
+        self.sap_model = sap_model_object
+        
+        self.setWindowTitle("Detalle y Gestión de Columnas - ETABS")
+        self.setGeometry(50, 50, 1200, 700) # Size based on complexity
+        
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(10,10,10,10)
+        self.main_layout.setSpacing(10)
+        
+        # -- Seccion de Botones Superiores
+        top_button_layout = QHBoxLayout()
+        top_button_layout.setSpacing(5) # Menor espaciado para botones de accion
+        
+        self.btn_identificar_columnas = QPushButton("1. Reasignar Columnas")
+        self.btn_exportar_planos = QPushButton("2. Exportar Planos")
+        
+        top_button_layout.addWidget(self.btn_identificar_columnas)
+        top_button_layout.addWidget(self.btn_exportar_planos)
+        
+        self.main_layout.addLayout(top_button_layout)
+        
+        # -- Area de Tabs para Datos de Columnas
+        self.tabs_layout = QHBoxLayout()
+        
+        # Placeholder para Rectangular
+        group_rectangular_layout = QVBoxLayout()
+        lbl_rectangular_armado = QLabel("[Rectangular] Armado transversal")
+        lbl_rectangular_resultados = QLabel("[Rectangular] Resultados")
+        self.table_rectangular_armado = QTableWidget(5, 3) # Filas, Columnas de ejemplo
+        self.table_rectangular_armado.setHorizontalHeaderLabels(["Piso", "Columna", "Sección"])
+        self.table_rectangular_resultados = QTableWidget(5, 4)
+        self.table_rectangular_resultados.setHorizontalHeaderLabels(["CONF...", "ID Ramas vert.", "CONF...", "ID Ramas horiz."])
+        
+        group_rectangular_layout.addWidget(lbl_rectangular_armado)
+        group_rectangular_layout.addWidget(self.table_rectangular_armado)
+        group_rectangular_layout.addWidget(lbl_rectangular_resultados)
+        group_rectangular_layout.addWidget(self.table_rectangular_resultados)
+        
+        # Placeholder par Circular
+        group_circular_layout = QVBoxLayout()
+        lbl_circular_armado = QLabel("[Circular] Armado transversal")
+        lbl_circular_resultados = QLabel("[Circular] Resultados")
+        self.table_circular_armado = QTableWidget(5, 3)
+        self.table_circular_armado.setHorizontalHeaderLabels(["Piso", "Columna", "Sección"])
+        self.table_circular_resultados = QTableWidget(5, 4)
+        self.table_circular_resultados.setHorizontalHeaderLabels(["CONF...", "ID Ramas vert.", "CONF...", "ID Ramas horiz."])
+
+        group_circular_layout.addWidget(lbl_circular_armado)
+        group_circular_layout.addWidget(self.table_circular_armado)
+        group_circular_layout.addWidget(lbl_circular_resultados)
+        group_circular_layout.addWidget(self.table_circular_resultados)
+
+        self.tabs_layout.addLayout(group_rectangular_layout)
+        self.tabs_layout.addLayout(group_circular_layout)
+
+        # Para hacer scrollable el contenido principal si excede el tamaño
+        scroll_content_widget = QWidget()
+        scroll_content_widget.setLayout(self.tabs_layout)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(scroll_content_widget)
+        scroll_area.setFrameShape(QFrame.NoFrame) # Sin borde para el área de scroll
+
+        self.main_layout.addWidget(scroll_area) # Añadir el área de scroll al layout principal
+        
+        # -- Boton de Volver
+        bottom_layout = QHBoxLayout()
+        self.btn_back_to_menu = QPushButton("Volver al Menú Principal")
+        self.btn_back_to_menu.clicked.connect(self.go_back_to_main_menu)
+        bottom_layout.addStretch(1)
+        bottom_layout.addWidget(self.btn_back_to_menu)
+        bottom_layout.addStretch(1)
+
+        self.main_layout.addLayout(bottom_layout)
+        
+         # Conectar acciones (placeholders por ahora)
+        self.btn_identificar_columnas.clicked.connect(self.load_column_data_action)
+
+        self.apply_styles() # Aplicar algunos estilos básicos
+        
+    def apply_styles(self):
+        # Estilo básico para los botones de acción
+        action_button_style = """
+            QPushButton {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 11px;
+                color: #FFFFFF;
+                background-color: #0078D7; /* Azul similar al de Office/Windows */
+                border: 1px solid #005A9E;
+                padding: 6px 10px;
+                border-radius: 3px;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #005A9E;
+            }
+            QPushButton:pressed {
+                background-color: #003C6A;
+            }
+        """
+        
+        
+        self.btn_identificar_columnas.setStyleSheet(action_button_style)
+        self.btn_exportar_planos.setStyleSheet(action_button_style)
+
+        # Estilo para el botón de volver (más grande y centrado)
+        self.btn_back_to_menu.setStyleSheet("""
+            QPushButton {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 14px;
+                color: #2c3e50;
+                background-color: #ecf0f1;
+                border: 1px solid #bdc3c7;
+                padding: 8px 20px;
+                border-radius: 4px;
+            }
+            QPushButton:hover { background-color: #d5d9db; }
+            QPushButton:pressed { background-color: #bdc3c7; }
+        """)
+        self.setStyleSheet("QWidget { background-color: #E1E1E1; } QLabel { font-size: 12px; font-weight: bold; }")
+        
+    def load_column_data_action(self):
+        """
+        Placeholder para la acción de cargar/identificar datos de columnas.
+        Aquí es donde interactuarías con self.sap_model para obtener los datos.
+        """
+        if self.sap_model:
+            # Ejemplo: Obtener nombres de todas las columnas
+            # try:
+            #     _ret, number_names, column_names = self.sap_model.FrameObj.GetNameList(2) # Tipo 2 para columnas
+            #     if _ret == 0 and number_names > 0:
+            #         self.table_rectangular_armado.setRowCount(number_names)
+            #         for i, name in enumerate(column_names):
+            #             self.table_rectangular_armado.setItem(i, 1, QTableWidgetItem(name))
+            #             # ... popular más datos ...
+            #         self.main_menu_ref.show_message(f"{number_names} columnas identificadas (ejemplo).")
+            #     else:
+            #         self.main_menu_ref.show_message("No se encontraron columnas o hubo un error.")
+            # except Exception as e:
+            #     self.main_menu_ref.show_message(f"Error al obtener datos de columnas: {e}")
+            self.main_menu_ref.show_message("Acción 'Identificar Columnas' activada. Conectado a ETABS.")
+            # Simular llenado de tabla
+            for r in range(5):
+                self.table_rectangular_armado.setItem(r,0, QTableWidgetItem(f"Piso {r+1}"))
+                self.table_rectangular_armado.setItem(r,1, QTableWidgetItem(f"C{r+1}-L{r*10}"))
+                self.table_rectangular_armado.setItem(r,2, QTableWidgetItem(f"40x60"))
+
+        else:
+            self.main_menu_ref.show_message("No hay conexión activa con SapModel para cargar datos.")
+
+
+    def go_back_to_main_menu(self):
+        """Oculta esta pantalla y muestra el menú principal."""
+        self.hide()
+        if self.main_menu_ref:
+            self.main_menu_ref.show()
+            self.main_menu_ref.sap_model_connected = None # Limpiar referencia en el menú principal
+
+    def closeEvent(self, event):
+        """Maneja el cierre de la ventana."""
+        self.go_back_to_main_menu() # Asegura que el menú principal se muestre
+        super().closeEvent(event)
+        
+        
+    
 
 class NewGameWindow(QWidget):
     """
@@ -211,6 +387,8 @@ class MainMenuScreen(QMainWindow):
         self.setWindowTitle("Menu Principal")
         self.setGeometry(100, 100, 800, 600) # x, y, width, height
         self.new_game_window = None # Attribute to hold the new game window instance
+        self.column_data_screen = None # Atributo para la nueva pantalla
+        self.sap_model_connected = None # Para almacenar el objeto SapModel
 
         # --- Central Widget and Layout ---
         self.central_widget = QWidget(self)
@@ -231,14 +409,12 @@ class MainMenuScreen(QMainWindow):
         
         # --- Menu Buttons ---
         self.btn_start_game = QPushButton("Crear cuadro de cols")
-        # self.btn_load_game = QPushButton("Load Game")
-        # self.btn_options = QPushButton("Options")
+        self.btn_connect_etabs = QPushButton("Conectar con archivo de ETABS abierto")
         self.btn_exit = QPushButton("Salir del Programa")
 
         # Set object names for specific styling
         self.btn_start_game.setObjectName("StdButton")
-        # self.btn_load_game.setObjectName("StdButton")
-        # self.btn_options.setObjectName("StdButton")
+        self.btn_connect_etabs.setObjectName("StdButton")
         self.btn_exit.setObjectName("ExitButton")
 
 
@@ -249,8 +425,7 @@ class MainMenuScreen(QMainWindow):
         button_layout = QVBoxLayout()
         button_layout.setSpacing(15)
         button_layout.addWidget(self.btn_start_game)
-        # button_layout.addWidget(self.btn_load_game)
-        # button_layout.addWidget(self.btn_options)
+        button_layout.addWidget(self.btn_connect_etabs)
         button_layout.addWidget(self.btn_exit)
 
         self.main_layout.addLayout(button_layout)
@@ -259,8 +434,7 @@ class MainMenuScreen(QMainWindow):
 
         # --- Connect Signals to Slots (Button Actions) ---
         self.btn_start_game.clicked.connect(self.start_game)
-        # self.btn_load_game.clicked.connect(self.load_game)
-        # self.btn_options.clicked.connect(self.open_options)
+        self.btn_connect_etabs.clicked.connect(self.connect_to_etabs_instance)
         self.btn_exit.clicked.connect(self.exit_application)
 
         # --- Apply Stylesheet ---
@@ -375,6 +549,37 @@ class MainMenuScreen(QMainWindow):
     def open_options(self):
         print("Action: Options clicked!")
         self.show_message("Opening Options...") # Placeholder
+        
+    def connect_to_etabs_instance(self):
+        print("Action: Conectar con archivo de ETABS abierto clicked!")
+        self.show_message("Intentando conectar con ETABS...")
+        success, message, sap_model = create_column_table.connect_to_active_etabs_instance()
+        if success and sap_model:
+            self.spa_model_connected = sap_model
+            self.show_message(message)
+            
+            # Crear y mostrar la ColumnDataScreen
+            if not self.column_data_screen:
+                self.column_data_screen = ColumnDataScreen(main_menu_ref=self, sap_model_object=self.spa_model_connected)
+            else:
+                # Si ya existe, actualiza la referencia al sap_model por si acaso
+                self.column_data_screen.sap_model = self.sap_model_connected
+                # Aquí podrías llamar a una función en column_data_screen para refrescar datos si es necesario
+                # self.column_data_screen.refresh_display_with_new_model()
+
+            self.column_data_screen.show()
+            self.hide() # Ocultar el menú principal
+                
+                
+            # create_column_table.get_open_model_data(sap_model)
+            
+        elif success and not sap_model:
+             # ETABS conectado pero sin modelo abierto
+            self.show_message(message + " Se requiere un modelo abierto para ver los datos de columnas.")
+            self.sap_model_connected = None
+        else:
+            self.show_message(message) # Muestra el mensaje de error
+            self.sap_model_connected = None
 
     def exit_application(self):
         print("Action: Salir del Programa clicked!")
@@ -416,10 +621,12 @@ class MainMenuScreen(QMainWindow):
         # from PyQt5.QtCore import QTimer # Uncomment for auto-hide
         # QTimer.singleShot(3000, msg_label.deleteLater) # Uncomment for auto-hide
     
+    # Sobrescribir closeEvent para cerrar también ColumnDataScreen si está abierta
     def closeEvent(self, event):
-        """Ensure child windows are closed when the main menu is closed."""
-        if self.new_game_window: # Check if it exists
+        if self.new_game_window:
             self.new_game_window.close()
+        if self.column_data_screen: # Añadido
+            self.column_data_screen.close()
         super().closeEvent(event)
 
 
