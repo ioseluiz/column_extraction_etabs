@@ -301,67 +301,72 @@ def get_open_model_data(SapModel):
 
         # 4. Merge with detail for section
         df_merged = pd.merge(df_columns, df_section_unique, on=['bxh', 'As'], how='left')
-        print(df_merged)
+        # print(df_merged)
         
         
         sections = df_merged['detail'].unique()
-        print(sections)
+        # print(sections)
         number_details = len(sections)
         #5. Sort rows
         df_sorted =df_merged.sort_values(by=['GridLine', 'z_start'],ascending=True)
         # Sort dataframe by pos_x, pos_y
-        df_sorted.to_excel("column_output.xlsx")
+        # df_sorted.to_excel("column_output.xlsx")
+        cols_data = df_sorted.to_dict(orient='records') # List of dictionaries
+        
+        return cols_data
+    
+    return None
         
     
     # #Close Application
     # EtabsObject.ApplicationExit(False)
 
     # Convert data to list of dicts
-    col_list = df_sorted.to_dict(orient='records')
+    # col_list = df_sorted.to_dict(orient='records')
     
     # Generate Cuadro de Columnas Excel
-    generate_excel_table(stories, grid_lines ,col_list)
+    # generate_excel_table(stories, grid_lines ,col_list)
     
     # Generate dxf section details
-    columns = []
-    for section in sections:
-        width = df_sorted[df_sorted['detail'] == section].iloc[0]['width'] * 1000 # Convert to mm
-        depth = df_sorted[df_sorted['detail'] == section].iloc[0]['depth'] * 1000 # Convert to mm
-        fc = df_sorted[df_sorted['detail'] == section].iloc[0]['material']
-        fc = int(fc[:-3])
-        # Convert fc to kg/cm2
-        fc = int(fc * (12*12)*(3.28*3.28)/(100*100*2.204))
-        fc = str(fc)
+    # columns = []
+    # for section in sections:
+    #     width = df_sorted[df_sorted['detail'] == section].iloc[0]['width'] * 1000 # Convert to mm
+    #     depth = df_sorted[df_sorted['detail'] == section].iloc[0]['depth'] * 1000 # Convert to mm
+    #     fc = df_sorted[df_sorted['detail'] == section].iloc[0]['material']
+    #     fc = int(fc[:-3])
+    #     # Convert fc to kg/cm2
+    #     fc = int(fc * (12*12)*(3.28*3.28)/(100*100*2.204))
+    #     fc = str(fc)
         
-        r2_bars = df_sorted[df_sorted['detail'] == section].iloc[0]['number_r2_bars']
-        r3_bars = df_sorted[df_sorted['detail'] == section].iloc[0]['number_r3_bars']
-        rebar_type = df_sorted[df_sorted['detail'] == section].iloc[0]['Rebar']
-        number_bars = df_sorted[df_sorted['detail'] == section].iloc[0]['# Bars']
-        cover = df_sorted[df_sorted['detail'] == section].iloc[0]['cover'] * 1000 #Convert to mm
-        stirrup_type = "#4"
+    #     r2_bars = df_sorted[df_sorted['detail'] == section].iloc[0]['number_r2_bars']
+    #     r3_bars = df_sorted[df_sorted['detail'] == section].iloc[0]['number_r3_bars']
+    #     rebar_type = df_sorted[df_sorted['detail'] == section].iloc[0]['Rebar']
+    #     number_bars = df_sorted[df_sorted['detail'] == section].iloc[0]['# Bars']
+    #     cover = df_sorted[df_sorted['detail'] == section].iloc[0]['cover'] * 1000 #Convert to mm
+    #     stirrup_type = "#4"
         
-        columns.append(
-            {'detail': section ,'column':RectangularColumn(width=depth, height=width, fc=fc, number_of_bars=number_bars, rebar_type=rebar_type, r2_bars=r2_bars, r3_bars=r3_bars, cover = cover, stirrup_type=stirrup_type),}
-        )
+        # columns.append(
+        #     {'detail': section ,'column':RectangularColumn(width=depth, height=width, fc=fc, number_of_bars=number_bars, rebar_type=rebar_type, r2_bars=r2_bars, r3_bars=r3_bars, cover = cover, stirrup_type=stirrup_type),}
+        # )
         
      # 1. Create list of Detail
-    list_details = []
-    start_point = (100,100)
-    counter = 0
-    width_detail = 3000
-    height_detail = 3000
+    # list_details = []
+    # start_point = (100,100)
+    # counter = 0
+    # width_detail = 3000
+    # height_detail = 3000
         
-    for i in range(1, len(columns)+1): 
-        actual_col = columns[i-1]['column']
-        origin_point = (start_point[0], start_point[1] - (height_detail*counter))
-        detail = Detail(f"{columns[i-1]['detail']}",origin_point, width_detail, height_detail)
-        detail.set_column(actual_col)
-        detail.set_origin_for_col(actual_col.width, actual_col.height)
-        list_details.append( detail)
-        counter += 1
+    # for i in range(1, len(columns)+1): 
+    #     actual_col = columns[i-1]['column']
+    #     origin_point = (start_point[0], start_point[1] - (height_detail*counter))
+    #     detail = Detail(f"{columns[i-1]['detail']}",origin_point, width_detail, height_detail)
+    #     detail.set_column(actual_col)
+    #     detail.set_origin_for_col(actual_col.width, actual_col.height)
+    #     list_details.append( detail)
+    #     counter += 1
 
-    drawing = Drawing(filename='detalles_cols_etabs.dxf', list_details=list_details)
-    drawing.create_dxf()
+    # drawing = Drawing(filename='detalles_cols_etabs.dxf', list_details=list_details)
+    # drawing.create_dxf()
 
 def get_model_data(model_path):
     data_output = []
