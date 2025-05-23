@@ -2,7 +2,7 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSpacerItem, QSizePolicy, QFileDialog,
-    QTableWidget, QTableWidgetItem, QScrollArea, QFrame
+    QTableWidget, QTableWidgetItem, QScrollArea, QFrame, QComboBox
     
 )
 from PyQt5.QtGui import QFont, QPixmap 
@@ -12,16 +12,20 @@ import pandas as pd
 
 from core import create_column_table
 
+from screens.identify_column import IdentificarColumnasScreen
+
 
 class ColumnDataScreen(QWidget):
     """
     Pantalla para mostrar y gestionar datos de columnas después de conectar con ETABS.
     Inspirada en la imagen proporcionada.
     """
-    def __init__(self, main_menu_ref, sap_model_object=None, parent=None, column_data=None):
+    def __init__(self, main_menu_ref, sap_model_object=None, parent=None, column_data=None, rect_sections=None, rebars=None):
         super().__init__(parent)
         self.main_menu_ref = main_menu_ref
         self.sap_model = sap_model_object
+        
+        self.identificar_columnas_screen = None
         
         self.setWindowTitle("Detalle y Gestión de Columnas - ETABS")
         self.setGeometry(50, 50, 1200, 700) # Size based on complexity
@@ -51,8 +55,8 @@ class ColumnDataScreen(QWidget):
         group_rectangular_layout = QVBoxLayout()
         lbl_rectangular_armado = QLabel("[Rectangular] Armado transversal")
         lbl_rectangular_resultados = QLabel("[Rectangular] Resultados")
-        self.table_rectangular_armado = QTableWidget(len(column_data), 13) # Filas, Columnas de ejemplo
-        self.table_rectangular_armado.setHorizontalHeaderLabels(["Piso","GridLine","Frame_id", "Sección", "depth","width", "Material", "Long. R2 Bars", "Long. R3 Bars","Rebar", "Rebar Est.","Cover","Detalle No."])
+        self.table_rectangular_armado = QTableWidget(len(column_data), 14) # Filas, Columnas de ejemplo
+        self.table_rectangular_armado.setHorizontalHeaderLabels(["Piso","GridLine","Frame_id", "Label","Sección", "depth","width", "Material", "Long. R2 Bars", "Long. R3 Bars","Rebar", "Rebar Est.","Cover","Detalle No."])
         
         print(column_data[0].keys())
         print(column_data[0])
@@ -73,51 +77,70 @@ class ColumnDataScreen(QWidget):
             item_frame_id = QTableWidgetItem(col['col_id'])
             self.table_rectangular_armado.setItem(col_idx, 2, item_frame_id)
             
-            # Col 3: Section
-            # combo_section = QComboBox()
-            # combo_section.addItems(defined_concrete_sections)
-            item_section = QTableWidgetItem(col['section'])
-            self.table_rectangular_armado.setItem(col_idx, 3, item_section)
+            # Col 3: Label
+            item_label = QTableWidgetItem(col['label'])
+            self.table_rectangular_armado.setItem(col_idx, 3, item_label)
+            
+            # Col 4: Section
+            combo_section = QComboBox()
+            combo_section.addItems(rect_sections)
+            
+            if col['section'] in rect_sections:
+                combo_section.setCurrentText(col['section'])
+            else:
+                print(f"Advertencia: El valor inicial '{col['section']}' para la fila {col_idx}")
+                print(f"No se encuentra en las opciones del ComboBox")
+                
+            # item_section = QTableWidgetItem(col['section'])
+            self.table_rectangular_armado.setCellWidget(col_idx, 4, combo_section)
             
             # Optional: Conectar signal para saber cuando cambia la seleccion
             # Usamos lambda para pasar la fila y el combobox a la funcion
             
             
-            # Col 4: depthssss
+            # Col 5: depthssss
             item_depth = QTableWidgetItem(str(col['depth']))
-            self.table_rectangular_armado.setItem(col_idx, 4, item_depth)
+            self.table_rectangular_armado.setItem(col_idx, 5, item_depth)
             
-            # Col 5: width
+            # Col 6: width
             item_width = QTableWidgetItem(str(col['width']))
-            self.table_rectangular_armado.setItem(col_idx, 5, item_width)
+            self.table_rectangular_armado.setItem(col_idx, 6, item_width)
             
-            # Col 6: Material
+            # Col 7: Material
             item_material = QTableWidgetItem(col['material'])
-            self.table_rectangular_armado.setItem(col_idx, 6, item_material)
+            self.table_rectangular_armado.setItem(col_idx, 7, item_material)
             
-            # Col 7: Long. R2 Bars
+            # Col 8: Long. R2 Bars
             item_r2_bars = QTableWidgetItem(str(col['number_r2_bars']))
-            self.table_rectangular_armado.setItem(col_idx, 7, item_r2_bars)
+            self.table_rectangular_armado.setItem(col_idx, 8, item_r2_bars)
             
-            # Col 8: Long. R3 Bars
+            # Col 9: Long. R3 Bars
             item_r3_bars = QTableWidgetItem(str(col['number_r3_bars']))
-            self.table_rectangular_armado.setItem(col_idx, 8, item_r3_bars)
+            self.table_rectangular_armado.setItem(col_idx, 9, item_r3_bars)
             
-            # Col 9: Rebar #
-            item_rebar = QTableWidgetItem(col['Rebar'])
-            self.table_rectangular_armado.setItem(col_idx, 9, item_rebar)
+            # Col 10: Rebar #
+            combo_rebar = QComboBox()
+            combo_rebar.addItems(rebars)
+            if col['Rebar'] in rebars:
+                combo_rebar.setCurrentText(col['Rebar'])
+            else:
+                print(f"Advertencia: El valor inicial '{col['Rebar']}' para la fila {col_idx}")
+                print(f"No se encuentra en las opciones del ComboBox")
+            self.table_rectangular_armado.setCellWidget(col_idx, 10, combo_rebar)
+            # item_rebar = QTableWidgetItem(col['Rebar'])
+            # self.table_rectangular_armado.setItem(col_idx, 10, item_rebar)
             
-            # Col 10: Mat. Est
+            # Col 11: Mat. Est
             item_mat_est = QTableWidgetItem(col['Mat. Estribo'])
-            self.table_rectangular_armado.setItem(col_idx, 10, item_mat_est)
+            self.table_rectangular_armado.setItem(col_idx, 11, item_mat_est)
             
-            # Col 10: Cover
+            # Col 12: Cover
             item_cover = QTableWidgetItem(str(col['cover']))
-            self.table_rectangular_armado.setItem(col_idx, 11,item_cover)
+            self.table_rectangular_armado.setItem(col_idx, 12,item_cover)
             
-            # Col 11: Detalle #
+            # Col 13: Detalle #
             item_detalle = QTableWidgetItem(col['detail'])
-            self.table_rectangular_armado.setItem(col_idx, 12,item_detalle)
+            self.table_rectangular_armado.setItem(col_idx, 13,item_detalle)
             
             
         self.table_rectangular_armado.resizeColumnsToContents()
@@ -217,33 +240,12 @@ class ColumnDataScreen(QWidget):
         self.setStyleSheet("QWidget { background-color: #E1E1E1; } QLabel { font-size: 12px; font-weight: bold; }")
         
     def load_column_data_action(self):
-        """
-        Placeholder para la acción de cargar/identificar datos de columnas.
-        Aquí es donde interactuarías con self.sap_model para obtener los datos.
-        """
-        if self.sap_model:
-            # Ejemplo: Obtener nombres de todas las columnas
-            # try:
-            #     _ret, number_names, column_names = self.sap_model.FrameObj.GetNameList(2) # Tipo 2 para columnas
-            #     if _ret == 0 and number_names > 0:
-            #         self.table_rectangular_armado.setRowCount(number_names)
-            #         for i, name in enumerate(column_names):
-            #             self.table_rectangular_armado.setItem(i, 1, QTableWidgetItem(name))
-            #             # ... popular más datos ...
-            #         self.main_menu_ref.show_message(f"{number_names} columnas identificadas (ejemplo).")
-            #     else:
-            #         self.main_menu_ref.show_message("No se encontraron columnas o hubo un error.")
-            # except Exception as e:
-            #     self.main_menu_ref.show_message(f"Error al obtener datos de columnas: {e}")
-            self.main_menu_ref.show_message("Acción 'Identificar Columnas' activada. Conectado a ETABS.")
-            # Simular llenado de tabla
-            for r in range(5):
-                self.table_rectangular_armado.setItem(r,0, QTableWidgetItem(f"Piso {r+1}"))
-                self.table_rectangular_armado.setItem(r,1, QTableWidgetItem(f"C{r+1}-L{r*10}"))
-                self.table_rectangular_armado.setItem(r,2, QTableWidgetItem(f"40x60"))
-
+        # Se crea una nueva instancia cada vez o se muestra una existente
+        if self.identificar_columnas_screen is None or not self.identificar_columnas_screen.isVisible():
+            self.identificar_columnas_screen = IdentificarColumnasScreen(self, stories=["N-100", "N-200"])
+            self.identificar_columnas_screen.show()
         else:
-            self.main_menu_ref.show_message("No hay conexión activa con SapModel para cargar datos.")
+            self.identificar_columnas_screen.activateWindow() # Traer al frente si ya está abierta
 
 
     def go_back_to_main_menu(self):

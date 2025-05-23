@@ -14,6 +14,128 @@ from dxf_drawer.detail import Detail
 from dxf_drawer.column import RectangularColumn
 
 
+# -- Constantes para tipos de material
+# MAT_TYPE_STEEL = 1
+MAT_TYPE_CONCRETE = 2
+# MAT_TYPE_NODESIGN = 3
+# MAT_TYPE_ALUMINIUM = 4
+# MAT_TYPE_COLDFORMED = 5
+# MAT_TYPE_REBAR = 6
+# MAT_TYPE_TENDON = 7
+# MAT_TYPE_MASONRY = 8
+
+def get_rectangular_concrete_sections(sap_model):
+    secciones_rect_concreto = []
+    prop_frame = sap_model.PropFrame
+    prop_material = sap_model.PropMaterial
+
+    if not prop_frame or not prop_material:
+        print("Error: No se pudo acceder a las propiedades de secciones o materiales.")
+        return secciones_rect_concreto
+    
+    # 1. Obtener la lista de todos los nombres de las secciones de frame ret, num_nombres,
+    # nombres_secciones = prop_frame.GetNameList()
+    num_nombres, nombres_secciones, ret = prop_frame.GetNameList()
+    if ret != 0 or num_nombres == 0:
+        print("No se encontraron secciones de marco definidas o hubo un error al obtenerlas.")
+        return secciones_rect_concreto
+    
+    print(f"Se encontraron {num_nombres} secciones de marco. Analizando...")
+
+    for nombre_seccion in nombres_secciones:
+        try:
+            # Intentar obtener las propiedades de la seccion como rectangular
+            # GetRectangle(Name, FileName, MatProp, T3, T2, Color, Notes, GUID)
+            file_name, mat_prop, t3, t2, color, notes, guid, ret_rect = prop_frame.GetRectangle(nombre_seccion)
+            if ret_rect == 0: # Si es 0, la seccion es rectangular
+                # 3. Obtener el tipo de material de la seccion
+                # GetMaterial(Name, MatType, Color, Notes, GUID)
+                tipo_mat_int, _, _, _, ret_mat_details = prop_material.GetMaterial(mat_prop)
+
+                if ret_mat_details == 0:
+                    # 4. Verificar si el material es concreto
+                    # Alternativamente, se podria usar GetTypeOAPI(Name) que devuelve solo el tipo
+                    # tipo_mat_oapi_int, ret_tipo_oapi = prop_material.GetTypeOAPI(mat_prop)
+                    # if ret_tipo_oapi == 0 and tipo_mat_oapi_int == MAT_TYPE_CONCRETE
+
+                    if tipo_mat_int == MAT_TYPE_CONCRETE:
+                        seccion_info = {
+                            "Nombre": nombre_seccion,
+                            "Material": mat_prop,
+                            "Profundidad (T3)": t3,
+                            "Ancho (T2)": t2,
+                        }
+                        secciones_rect_concreto.append(seccion_info)
+                        print(f" Seccion rectangular de concreto encontrada: {nombre_seccion} (Material: {mat_prop}, T3={t3}, T2={t2})")
+
+        except Exception as e:
+            print(f"Excepcion al procesar la seccion: '{nombre_seccion}': {e}")
+            # Esto podria suceder si una seccion tiene un nombre en la lista pero
+            # no se puede consultar con GetRectangle (secciones importadas extranas o nulas)
+            continue
+        
+        if not secciones_rect_concreto:
+            print("No se encontraron secciones rectangulares de concreto.")
+        else:
+            print(f"\nTotal de secciones rectangulares de concreto encontradas: {len(secciones_rect_concreto)}")
+
+    return secciones_rect_concreto
+
+
+def obtener_barras_refuerzo_definidas(sap_model):
+    barras_refuerzo_definidas = []
+    prop_rebar = sap_model.PropRebar
+
+    if not prop_rebar:
+        print("Error: No se pudo acceder a las propiedades de las barras de refuerzo.")
+        return barras_refuerzo_definidas
+
+    # 1. Obtener la lista de todos los nombres/designaciones de las barras de refuerzo
+    # GetNameList() para PropRebar devuelve (ret, NumberNames, MyNameArray)
+    num_nombres, nombres_barras, ret = prop_rebar.GetNameList()
+
+    if ret != 0:
+        print(f"Error al obtener la lista de nombres de barras de refuerzo. Código: {ret}")
+        return barras_refuerzo_definidas
+
+    if num_nombres == 0:
+        print("No se encontraron barras de refuerzo definidas en el modelo.")
+        return barras_refuerzo_definidas
+
+    print(f"Se encontraron {num_nombres} designaciones de barras de refuerzo. Analizando...")
+
+    for nombre_barra in nombres_barras:
+        try:
+            # 2. Obtener las propiedades de cada barra de refuerzo (área y diámetro)
+            # GetRebarProps(Name, Area, Diameter)
+            # Las unidades de Area y Diameter serán las unidades base de la base de datos del modelo.
+            area_barra, diametro_barra, ret_props = prop_rebar.GetRebarProps(nombre_barra)
+
+            if ret_props == 0:
+                barra_info = {
+                    "Nombre": nombre_barra,
+                    "Area": area_barra,
+                    "Diametro": diametro_barra,
+                }
+                barras_refuerzo_definidas.append(barra_info)
+                print(f"  Barra de refuerzo encontrada: {nombre_barra} (Área: {area_barra:.4f}, Diámetro: {diametro_barra:.4f})")
+            else:
+                print(f"  Error al obtener propiedades para la barra de refuerzo '{nombre_barra}'. Código: {ret_props}")
+
+        except Exception as e:
+            print(f"Excepción al procesar la barra de refuerzo '{nombre_barra}': {e}")
+            continue
+
+    if not barras_refuerzo_definidas:
+        # Este mensaje podría ser redundante si num_nombres fue 0, pero se mantiene por si hay fallos en GetRebarProps
+        print("No se pudieron extraer detalles de las barras de refuerzo definidas.")
+    else:
+        print(f"\nTotal de designaciones de barras de refuerzo procesadas: {len(barras_refuerzo_definidas)}")
+
+    return barras_refuerzo_definidas
+
+
+
 def connect_to_active_etabs_instance():
     """
     Intenta conectarse a una instancia activa de ETABS y obtener la ruta del modelo abierto.
@@ -194,6 +316,7 @@ def get_open_model_data(SapModel):
                 for col_name in sorted(columns_at_levels[story_name]):
                     info = {}
                     col_section = SapModel.FrameObj.GetSection(col_name)[0]
+                    col_label, col_story, ret_label = SapModel.FrameObj.GetLabelFromName(col_name)
                     material_defined = SapModel.PropFrame.GetMaterial(col_section)[0]
                     col_point1, col_point2,  ret_points = SapModel.FrameObj.GetPoints(col_name)
                     col_x_pos = SapModel.PointObj.GetCoordCartesian(col_point1)[0]
@@ -221,6 +344,7 @@ def get_open_model_data(SapModel):
                     
                     #print(f"  - {col_name} - {col_section},Material: {material_defined},  Pos X: {col_x_pos}, Pos Y: {col_y_pos}, Elev: {col_z_start} to Elev: {col_z_end}, shape: {col_shape}, Width: {width}, Depth: {depth}")
                     info['col_id'] = col_name
+                    info['label'] = col_label
                     info['section'] = col_section
                     info['type'] = col_shape
                     info['width'] = width
@@ -313,7 +437,18 @@ def get_open_model_data(SapModel):
         # df_sorted.to_excel("column_output.xlsx")
         cols_data = df_sorted.to_dict(orient='records') # List of dictionaries
         
-        return cols_data
+        # Get Rectangular Sections:
+        rect_sections = get_rectangular_concrete_sections(SapModel)
+        rebars_defined = obtener_barras_refuerzo_definidas(SapModel)
+        extracted_sections = []
+        for elemento in rect_sections:
+            extracted_sections.append(elemento['Nombre'])
+        rebars_in_etabs = []
+        for rebar in rebars_defined:
+            rebars_in_etabs.append(rebar['Nombre'])
+            
+        
+        return {'cols_data': cols_data, 'rect_sections': extracted_sections, 'rebars_defined': rebars_in_etabs}
     
     return None
         
@@ -433,6 +568,7 @@ def get_model_data(model_path):
                 print(f"\nLevel: {story_name} (Elevation: {story_info['elevation']:.2f})")
                 for col_name in sorted(columns_at_levels[story_name]):
                     info = {}
+                    col_label, col_story, ret_label = SapModel.FrameObj.GetLabelFromName(col_name)
                     col_section = SapModel.FrameObj.GetSection(col_name)[0]
                     material_defined = SapModel.PropFrame.GetMaterial(col_section)[0]
                     col_point1, col_point2,  ret_points = SapModel.FrameObj.GetPoints(col_name)
@@ -461,6 +597,7 @@ def get_model_data(model_path):
                     
                     #print(f"  - {col_name} - {col_section},Material: {material_defined},  Pos X: {col_x_pos}, Pos Y: {col_y_pos}, Elev: {col_z_start} to Elev: {col_z_end}, shape: {col_shape}, Width: {width}, Depth: {depth}")
                     info['col_id'] = col_name
+                    info['label'] = col_label
                     info['section'] = col_section
                     info['type'] = col_shape
                     info['width'] = width

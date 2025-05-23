@@ -44,11 +44,13 @@ class MainMenuScreen(QMainWindow):
         # --- Menu Buttons ---
         self.btn_start_game = QPushButton("Crear cuadro de cols")
         self.btn_connect_etabs = QPushButton("Conectar con archivo de ETABS abierto")
+        self.btn_identify_columns = QPushButton("Identificar Columnas")
         self.btn_exit = QPushButton("Salir del Programa")
 
         # Set object names for specific styling
         self.btn_start_game.setObjectName("StdButton")
         self.btn_connect_etabs.setObjectName("StdButton")
+        self.btn_identify_columns.setObjectName("StdButton")
         self.btn_exit.setObjectName("ExitButton")
 
 
@@ -60,6 +62,7 @@ class MainMenuScreen(QMainWindow):
         button_layout.setSpacing(15)
         button_layout.addWidget(self.btn_start_game)
         button_layout.addWidget(self.btn_connect_etabs)
+        button_layout.addWidget(self.btn_identify_columns)
         button_layout.addWidget(self.btn_exit)
 
         self.main_layout.addLayout(button_layout)
@@ -69,6 +72,7 @@ class MainMenuScreen(QMainWindow):
         # --- Connect Signals to Slots (Button Actions) ---
         self.btn_start_game.clicked.connect(self.start_game)
         self.btn_connect_etabs.clicked.connect(self.connect_to_etabs_instance)
+        self.btn_identify_columns.clicked.connect(self.identificar_columnas)
         self.btn_exit.clicked.connect(self.exit_application)
 
         # --- Apply Stylesheet ---
@@ -193,12 +197,16 @@ class MainMenuScreen(QMainWindow):
             self.show_message(message)
             
             # Get model Column data
-            column_data = create_column_table.get_open_model_data(sap_model)
+            model_data = create_column_table.get_open_model_data(sap_model)
+            column_data = model_data['cols_data']
+            rect_sections = model_data['rect_sections']
+            rebars = model_data['rebars_defined']
+            
             
             
             # Crear y mostrar la ColumnDataScreen
             if not self.column_data_screen:
-                self.column_data_screen = ColumnDataScreen(main_menu_ref=self, sap_model_object=self.sap_model_connected, column_data=column_data)
+                self.column_data_screen = ColumnDataScreen(main_menu_ref=self, sap_model_object=self.sap_model_connected, column_data=column_data, rect_sections=rect_sections, rebars=rebars)
             else:
                 # Si ya existe, actualiza la referencia al sap_model por si acaso
                 self.column_data_screen.sap_model = self.sap_model_connected
@@ -218,6 +226,10 @@ class MainMenuScreen(QMainWindow):
         else:
             self.show_message(message) # Muestra el mensaje de error
             self.sap_model_connected = None
+            
+    def identificar_columnas(self):
+        print("Action: Identificar Columnas")
+        
 
     def exit_application(self):
         print("Action: Salir del Programa clicked!")
